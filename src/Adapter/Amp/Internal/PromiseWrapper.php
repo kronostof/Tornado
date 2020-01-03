@@ -3,6 +3,7 @@
 namespace M6Web\Tornado\Adapter\Amp\Internal;
 
 use M6Web\Tornado\Adapter\Common\Internal\FailingPromiseCollection;
+use M6Web\Tornado\Exception\CancellationException;
 use M6Web\Tornado\Promise;
 
 /**
@@ -16,6 +17,11 @@ class PromiseWrapper implements Promise
      */
     private $ampPromise;
 
+    /**
+     * @var callable
+     */
+    private $cancelCallback;
+
     /** @var bool */
     private $isHandled;
 
@@ -26,25 +32,36 @@ class PromiseWrapper implements Promise
     {
     }
 
-    public static function createUnhandled(\Amp\Promise $ampPromise, FailingPromiseCollection $failingPromiseCollection)
+    /**
+     * @inheritDoc
+     */
+    public function cancel(CancellationException $exception): void
+    {
+        ($this->cancelCallback)($exception);
+    }
+
+    public static function createUnhandled(\Amp\Promise $ampPromise, FailingPromiseCollection $failingPromiseCollection, callable $cancelCallback)
     {
         $promiseWrapper = new self();
         $promiseWrapper->isHandled = false;
         $promiseWrapper->ampPromise = $ampPromise;
+        $promiseWrapper->cancelCallback = $cancelCallback;
         $promiseWrapper->ampPromise->onResolve(
             function (?\Throwable $reason, $value) use ($promiseWrapper, $failingPromiseCollection) {
                 if ($reason !== null && !$promiseWrapper->isHandled) {
                     $failingPromiseCollection->watchFailingPromise($promiseWrapper, $reason);
                 }
+                $promiseWrapper->cancelCallback = function () {};
             }
         );
 
         return $promiseWrapper;
     }
 
-    public static function createHandled(\Amp\Promise $ampPromise)
+    public static function createHandled(\Amp\Promise $ampPromise, callable $cancelCallback)
     {
         $promiseWrapper = new self();
+        $promiseWrapper->cancelCallback = $cancelCallback;
         $promiseWrapper->isHandled = true;
         $promiseWrapper->ampPromise = $ampPromise;
 
