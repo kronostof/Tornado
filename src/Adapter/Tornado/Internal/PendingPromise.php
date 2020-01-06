@@ -3,6 +3,7 @@
 namespace M6Web\Tornado\Adapter\Tornado\Internal;
 
 use M6Web\Tornado\Adapter\Common\Internal\FailingPromiseCollection;
+use M6Web\Tornado\Exception\CancellationException;
 use M6Web\Tornado\Deferred;
 use M6Web\Tornado\Promise;
 
@@ -15,6 +16,9 @@ class PendingPromise implements Promise, Deferred
     private $value;
     private $throwable;
     private $callbacks = [];
+    private $cancelled = false;
+    /** @var callable */
+    private $cancelCallback;
     private $isSettled = false;
     /** @var ?FailingPromiseCollection */
     private $failingPromiseCollection;
@@ -26,17 +30,32 @@ class PendingPromise implements Promise, Deferred
     {
     }
 
-    public static function createUnhandled(FailingPromiseCollection $failingPromiseCollection)
+    public function cancel(CancellationException $exception): void
+    {
+        if (!$this->cancelled && !$this->isSettled) {
+            ($this->cancelCallback)($exception);
+            $this->cancelled = true;
+        }
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelled;
+    }
+
+    public static function createUnhandled(FailingPromiseCollection $failingPromiseCollection, callable $cancelCallback = null)
     {
         $promiseWrapper = new self();
         $promiseWrapper->failingPromiseCollection = $failingPromiseCollection;
+        $promiseWrapper->cancelCallback = $cancelCallback ?? function () {};
 
         return $promiseWrapper;
     }
 
-    public static function createHandled()
+    public static function createHandled(callable $cancelCallback = null)
     {
         $promiseWrapper = new self();
+        $promiseWrapper->cancelCallback = $cancelCallback ?? function () {};
         $promiseWrapper->failingPromiseCollection = null;
 
         return $promiseWrapper;
@@ -105,6 +124,10 @@ class PendingPromise implements Promise, Deferred
 
     private function settle()
     {
+        if ($this->isCancelled()) {
+            throw new CancellationException('already cancelled.');
+        }
+
         if ($this->isSettled) {
             throw new \LogicException('Cannot resolve/reject a promise already settled.');
         }
