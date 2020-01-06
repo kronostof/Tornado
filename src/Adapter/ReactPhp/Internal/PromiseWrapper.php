@@ -3,6 +3,7 @@
 namespace M6Web\Tornado\Adapter\ReactPhp\Internal;
 
 use M6Web\Tornado\Adapter\Common\Internal\FailingPromiseCollection;
+use M6Web\Tornado\Exception\CancellationException;
 use M6Web\Tornado\Promise;
 
 /**
@@ -12,7 +13,7 @@ use M6Web\Tornado\Promise;
 class PromiseWrapper implements Promise
 {
     /**
-     * @var \React\Promise\PromiseInterface
+     * @var \React\Promise\CancellablePromiseInterface
      */
     private $reactPromise;
 
@@ -26,7 +27,12 @@ class PromiseWrapper implements Promise
     {
     }
 
-    public static function createUnhandled(\React\Promise\PromiseInterface $reactPromise, FailingPromiseCollection $failingPromiseCollection)
+    public function cancel(CancellationException $exception): void
+    {
+        $this->reactPromise->cancel();
+    }
+
+    public static function createUnhandled(\React\Promise\CancellablePromiseInterface $reactPromise, FailingPromiseCollection $failingPromiseCollection)
     {
         $promiseWrapper = new self();
         $promiseWrapper->isHandled = false;
@@ -43,7 +49,7 @@ class PromiseWrapper implements Promise
         return $promiseWrapper;
     }
 
-    public static function createHandled(\React\Promise\PromiseInterface $reactPromise)
+    public static function createHandled(\React\Promise\CancellablePromiseInterface $reactPromise)
     {
         $promiseWrapper = new self();
         $promiseWrapper->isHandled = true;
@@ -52,7 +58,7 @@ class PromiseWrapper implements Promise
         return $promiseWrapper;
     }
 
-    public function getReactPromise(): \React\Promise\PromiseInterface
+    public function getReactPromise(): \React\Promise\CancellablePromiseInterface
     {
         return $this->reactPromise;
     }
