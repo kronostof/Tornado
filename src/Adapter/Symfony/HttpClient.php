@@ -55,7 +55,7 @@ class HttpClient implements \M6Web\Tornado\HttpClient
                 'body' => $body->getContents(),
                 'http_version' => $request->getProtocolVersion(),
                 'user_data' => [
-                    $deferred = $this->eventLoop->deferred(),
+                    $deferred = $this->eventLoop->deferred(function() {}),
                     $requestId,
                 ],
             ]);
