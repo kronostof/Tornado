@@ -253,11 +253,17 @@ class EventLoop implements \M6Web\Tornado\EventLoop
      */
     public function deferred(callable $cancelCallback): Deferred
     {
-        return new Internal\Deferred(
-            $deferred = new \Amp\Deferred(),
-            // Manually created promises are considered as handled.
-            Internal\PromiseWrapper::createHandled($deferred->promise(), $cancelCallback)
-        );
+        $ampDeferred = new \Amp\Deferred();
+        $deferred = null;
+        // Manually created promises are considered as handled.
+        $promise = Internal\PromiseWrapper::createHandled(
+            $ampDeferred->promise(),
+            function(CancellationException $exception) use(&$deferred, $cancelCallback) {
+                $deferred->reject($exception);
+                $cancelCallback($exception);
+        });
+
+        return $deferred = new Internal\Deferred($ampDeferred,$promise);
     }
 
     /**

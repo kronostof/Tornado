@@ -16,7 +16,6 @@ class PendingPromise implements Promise, Deferred
     private $value;
     private $throwable;
     private $callbacks = [];
-    private $cancelled = false;
     /** @var callable */
     private $cancelCallback;
     private $isSettled = false;
@@ -32,15 +31,10 @@ class PendingPromise implements Promise, Deferred
 
     public function cancel(CancellationException $exception): void
     {
-        if (!$this->cancelled && !$this->isSettled) {
+        if (!$this->isSettled) {
+            $this->reject($exception);
             ($this->cancelCallback)($exception);
-            $this->cancelled = true;
         }
-    }
-
-    public function isCancelled(): bool
-    {
-        return $this->cancelled;
     }
 
     public static function createUnhandled(FailingPromiseCollection $failingPromiseCollection, callable $cancelCallback = null)
@@ -124,10 +118,6 @@ class PendingPromise implements Promise, Deferred
 
     private function settle()
     {
-        if ($this->isCancelled()) {
-            throw new CancellationException('already cancelled.');
-        }
-
         if ($this->isSettled) {
             throw new \LogicException('Cannot resolve/reject a promise already settled.');
         }

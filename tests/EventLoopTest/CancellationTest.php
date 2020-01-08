@@ -46,8 +46,9 @@ trait CancellationTest
         $promise->cancel($expectedException = new CancellationException('Cancellation'));
 
         $this->assertSame($expectedException, $receivedException);
+        $this->expectException(CancellationException::class);
+        $this->expectExceptionMessage($expectedException->getMessage());
         $eventLoop->wait($eventLoop->async((function() use($promise) {yield $promise;})()));
-        $this->expectException($expectedException);
     }
 
     public function testCancellationDoesNotInterruptExecution()

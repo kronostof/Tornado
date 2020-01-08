@@ -49,19 +49,12 @@ class EventLoop implements \M6Web\Tornado\EventLoop
             return count($this->tasks) !== 0;
         };
 
-        if (method_exists($promise, 'isCancelled') && $promise->isCancelled()) {
-            throw new CancellationException('cancelled wait');
-        }
-
         do {
             // Copy tasks list to safely allow tasks addition by tasks themselves
             $allTasks = $this->tasks;
             $this->tasks = [];
             foreach ($allTasks as $task) {
                 try {
-                    if ($task->getPromise()->isCancelled()) {
-                        continue;
-                    }
                     if (!$task->getGenerator()->valid()) {
                         $task->getPromise()->resolve($task->getGenerator()->getReturn());
                         // This task is finished

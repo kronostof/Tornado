@@ -32,7 +32,6 @@ class PromiseWrapper implements Promise
 
     public function cancel(CancellationException $exception): void
     {
-        $this->reactPromise->cancel();
         ($this->cancelCallback)($exception);
     }
 
