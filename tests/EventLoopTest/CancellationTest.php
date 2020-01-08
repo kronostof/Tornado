@@ -9,31 +9,15 @@ trait CancellationTest
 {
     abstract protected function createEventLoop(): EventLoop;
 
-    public function testIdleThrowACancelledException()
-    {
-        $eventLoop = $this->createEventLoop();
-        $promise = $eventLoop->idle();
-        $promise->cancel(new CancellationException('generic cancellation'));
-
-        $this->expectException(CancellationException::class);
-        $eventLoop->wait($promise);
-    }
-
-    public function testDelayPromiseThrowException()
-    {
-        $eventLoop = $this->createEventLoop();
-        $promise = $eventLoop->delay(self::LONG_WAITING_TIME);
-        $promise->cancel(new CancellationException('generic cancellation'));
-
-        $this->expectException(CancellationException::class);
-        $eventLoop->wait($promise);
+    static private function promiseRaceCancelMessage() {
+        return 'Cancelled by promiseRace function';
     }
 
     public function testCannotCancelFulfilledPromise()
     {
         $eventLoop = $this->createEventLoop();
         $promise = $eventLoop->promiseFulfilled(42);
-        $promise->cancel(new CancellationException('generic cancellation'));
+        $promise->cancel(new CancellationException('Cancellation'));
 
         $this->assertSame(42, $eventLoop->wait($promise));
     }
@@ -45,10 +29,25 @@ trait CancellationTest
         };
 
         $promise = $eventLoop->promiseRejected($expectedException);
-        $promise->cancel(new CancellationException('generic cancellation'));
+        $promise->cancel(new CancellationException('Cancellation'));
 
         $this->expectException(get_class($expectedException));
         $eventLoop->wait($promise);
+    }
+
+    public function testDeferredCallbackIsCalledWhenPromiseIsCancelled()
+    {
+        $eventLoop = $this->createEventLoop();
+        $receivedException = false;
+        $deferred = $eventLoop->deferred(function(CancellationException $exception) use(&$receivedException) {
+            $receivedException = $exception;
+        });
+        $promise = $deferred->getPromise();
+        $promise->cancel($expectedException = new CancellationException('Cancellation'));
+
+        $this->assertSame($expectedException, $receivedException);
+        $eventLoop->wait($eventLoop->async((function() use($promise) {yield $promise;})()));
+        $this->expectException($expectedException);
     }
 
     public function testCancellationDoesNotInterruptExecution()
@@ -58,11 +57,67 @@ trait CancellationTest
 
         $result = $eventLoop->wait($eventLoop->async((function () use ($promise) {
             yield $promise;
-            $promise->cancel(new CancellationException('generic cancellation'));
+            $promise->cancel(new CancellationException('Cancellation'));
 
             return 'success';
         })()));
         $this->assertSame('success', $result);
+    }
+
+    public function testPromiseRaceCancelLastPromises()
+    {
+        $eventLoop = $this->createEventLoop();
+        $exception1 = null;
+        $exception3 = null;
+
+        $promises = [
+            ($eventLoop->deferred(function(CancellationException $exception) use(&$exception1) {$exception1 = $exception;}))->getPromise(),
+            $eventLoop->promiseFulfilled('success'),
+            ($eventLoop->deferred(function(CancellationException $exception) use(&$exception3) {$exception3 = $exception;}))->getPromise(),
+        ];
+
+        $this->assertSame('success', $eventLoop->wait($eventLoop->promiseRace(...$promises)));
+        $this->assertInstanceOf(CancellationException::class, $exception1);
+        //$this->assertSame(self::promiseRaceCancelMessage(), $exception1->getMessage());
+        $this->assertInstanceOf(CancellationException::class, $exception3);
+        //$this->assertSame(self::promiseRaceCancelMessage(), $exception3->getMessage());
+    }
+
+
+    public function testCancellingDelayPromise()
+    {
+        $eventLoop = $this->createEventLoop();
+        $testedPromise = $eventLoop->delay(100/*ms*/);
+
+        $globalPromise = $eventLoop->promiseAll(
+            // Check that $testedPromise throw an exception if cancelled
+            $eventLoop->async((function() use($testedPromise) {
+                try {
+                    yield $testedPromise;
+                } catch(CancellationException $exception) {
+                    return $exception->getMessage();
+                }
+            })()),
+            // Cancel $testedPromise through promiseRace
+            $eventLoop->promiseRace(
+                $testedPromise,
+                $eventLoop->promiseFulfilled('promiseRace success')
+            )
+        );
+
+        $this->assertSame([self::promiseRaceCancelMessage(), 'promiseRace success'], $eventLoop->wait($globalPromise));
+    }
+
+    // ------------- TODO
+
+    public function testIdleThrowACancelledException()
+    {
+        $eventLoop = $this->createEventLoop();
+        $promise = $eventLoop->idle();
+        $promise->cancel(new CancellationException('generic cancellation'));
+
+        $this->expectException(CancellationException::class);
+        $eventLoop->wait($promise);
     }
 
     public function testComplexAsync()
