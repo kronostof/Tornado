@@ -12,6 +12,9 @@ use M6Web\Tornado\Promise;
  */
 class PromiseWrapper implements Promise
 {
+    /** @var callable */
+    private $cancelCallback;
+
     /**
      * @var \React\Promise\CancellablePromiseInterface
      */
@@ -30,13 +33,15 @@ class PromiseWrapper implements Promise
     public function cancel(CancellationException $exception): void
     {
         $this->reactPromise->cancel();
+        ($this->cancelCallback)($exception);
     }
 
-    public static function createUnhandled(\React\Promise\CancellablePromiseInterface $reactPromise, FailingPromiseCollection $failingPromiseCollection)
+    public static function createUnhandled(\React\Promise\CancellablePromiseInterface $reactPromise, FailingPromiseCollection $failingPromiseCollection, callable $cancelCallback)
     {
         $promiseWrapper = new self();
         $promiseWrapper->isHandled = false;
         $promiseWrapper->reactPromise = $reactPromise;
+        $promiseWrapper->cancelCallback= $cancelCallback;
         $promiseWrapper->reactPromise->then(
             null,
             function (?\Throwable $reason) use ($promiseWrapper, $failingPromiseCollection) {
@@ -49,11 +54,12 @@ class PromiseWrapper implements Promise
         return $promiseWrapper;
     }
 
-    public static function createHandled(\React\Promise\CancellablePromiseInterface $reactPromise)
+    public static function createHandled(\React\Promise\CancellablePromiseInterface $reactPromise, callable $cancelCallback)
     {
         $promiseWrapper = new self();
         $promiseWrapper->isHandled = true;
         $promiseWrapper->reactPromise = $reactPromise;
+        $promiseWrapper->cancelCallback = $cancelCallback;
 
         return $promiseWrapper;
     }

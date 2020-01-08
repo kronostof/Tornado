@@ -111,7 +111,10 @@ class EventLoop implements \M6Web\Tornado\EventLoop
 
         $fnWrapGenerator($generator, $deferred);
 
-        return Internal\PromiseWrapper::createUnhandled($deferred->promise(), $this->unhandledFailingPromises);
+        $cancelCallback = function() {
+            // TODO
+        };
+        return Internal\PromiseWrapper::createUnhandled($deferred->promise(), $this->unhandledFailingPromises, $cancelCallback);
     }
 
     /**
@@ -131,7 +134,10 @@ class EventLoop implements \M6Web\Tornado\EventLoop
                     $promises
                 )
             ),
-            $this->unhandledFailingPromises
+            $this->unhandledFailingPromises,
+            $cancelCallback = function() {
+                // TODO
+            }
         );
     }
 
@@ -153,7 +159,14 @@ class EventLoop implements \M6Web\Tornado\EventLoop
      */
     public function promiseRace(Promise ...$promises): Promise
     {
-        return Internal\PromiseWrapper::createUnhandled(
+
+        $cancelCallback = function (CancellationException $exception) use (&$deferred, &$promises) {
+            foreach ($promises as $promise) {
+                $promise->cancel($exception);
+            }
+        };
+
+        $promiseRace = Internal\PromiseWrapper::createUnhandled(
             \React\Promise\race(
                 array_map(
                     function (Promise $promise) {
@@ -165,8 +178,11 @@ class EventLoop implements \M6Web\Tornado\EventLoop
                     $promises
                 )
             ),
-            $this->unhandledFailingPromises
+            $this->unhandledFailingPromises,
+            $cancelCallback
         );
+
+        return $promiseRace;
     }
 
     /**
@@ -174,7 +190,11 @@ class EventLoop implements \M6Web\Tornado\EventLoop
      */
     public function promiseFulfilled($value): Promise
     {
-        return Internal\PromiseWrapper::createHandled(new \React\Promise\FulfilledPromise($value));
+        return Internal\PromiseWrapper::createHandled(
+            new \React\Promise\FulfilledPromise($value),
+            function () {
+            }
+        );
     }
 
     /**
@@ -183,7 +203,10 @@ class EventLoop implements \M6Web\Tornado\EventLoop
     public function promiseRejected(\Throwable $throwable): Promise
     {
         // Manually created promises are considered as handled.
-        return Internal\PromiseWrapper::createHandled(new \React\Promise\RejectedPromise($throwable));
+        return Internal\PromiseWrapper::createHandled(new \React\Promise\RejectedPromise($throwable),
+            function () {
+            }
+        );
     }
 
     /**
@@ -241,7 +264,7 @@ class EventLoop implements \M6Web\Tornado\EventLoop
         return new Internal\Deferred(
             $deferred = new \React\Promise\Deferred($cancelCallback),
             // Manually created promises are considered as handled.
-            Internal\PromiseWrapper::createHandled($deferred->promise())
+            Internal\PromiseWrapper::createHandled($deferred->promise(), $cancelCallback)
         );
     }
 
