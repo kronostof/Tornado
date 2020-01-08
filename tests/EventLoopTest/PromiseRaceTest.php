@@ -23,9 +23,9 @@ trait PromiseRaceTest
     public function testPromiseRaceShouldResolvePromisesArray(int $expectedValue = 2)
     {
         $eventLoop = $this->createEventLoop();
-        $d1 = $eventLoop->deferred();
-        $d2 = $eventLoop->deferred();
-        $d3 = $eventLoop->deferred();
+        $d1 = $eventLoop->deferred(function() {});
+        $d2 = $eventLoop->deferred(function() {});
+        $d3 = $eventLoop->deferred(function() {});
 
         // $d2 will be resolved first
         $eventLoop->async((function () use ($d1, $d2, $d3, $eventLoop) {
@@ -57,9 +57,9 @@ trait PromiseRaceTest
     public function testPromiseRaceShouldRejectIfFirstSettledPromiseRejects(int $expectedValue = 2)
     {
         $eventLoop = $this->createEventLoop();
-        $d1 = $eventLoop->deferred();
-        $d2 = $eventLoop->deferred();
-        $d3 = $eventLoop->deferred();
+        $d1 = $eventLoop->deferred(function() {});
+        $d2 = $eventLoop->deferred(function() {});
+        $d3 = $eventLoop->deferred(function() {});
 
         // $d2 will be rejected first
         $eventLoop->async((function () use ($d1, $d2, $d3, $eventLoop) {

@@ -246,7 +246,7 @@ trait AsyncTest
         };
 
         $unwatchedRejectedPromise = $eventLoop->promiseRejected(new \Exception('Rejected Promise'));
-        $unwatchedDeferred = $eventLoop->deferred();
+        $unwatchedDeferred = $eventLoop->deferred(function() {});;
         $unwatchedDeferred->reject(new \Exception('Rejected Deferred'));
 
         $this->assertSame(null, $eventLoop->wait($eventLoop->async($generatorWaitALittle())));

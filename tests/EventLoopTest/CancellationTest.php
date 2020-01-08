@@ -2,7 +2,7 @@
 
 namespace M6WebTest\Tornado\EventLoopTest;
 
-use M6Web\Tornado\CancellationException;
+use M6Web\Tornado\Exception\CancellationException;
 use M6Web\Tornado\EventLoop;
 
 trait CancellationTest
@@ -13,7 +13,7 @@ trait CancellationTest
     {
         $eventLoop = $this->createEventLoop();
         $promise = $eventLoop->idle();
-        $promise->cancel();
+        $promise->cancel(new CancellationException('generic cancellation'));
 
         $this->expectException(CancellationException::class);
         $eventLoop->wait($promise);
@@ -23,7 +23,7 @@ trait CancellationTest
     {
         $eventLoop = $this->createEventLoop();
         $promise = $eventLoop->delay(self::LONG_WAITING_TIME);
-        $promise->cancel();
+        $promise->cancel(new CancellationException('generic cancellation'));
 
         $this->expectException(CancellationException::class);
         $eventLoop->wait($promise);
@@ -33,7 +33,7 @@ trait CancellationTest
     {
         $eventLoop = $this->createEventLoop();
         $promise = $eventLoop->promiseFulfilled(42);
-        $promise->cancel();
+        $promise->cancel(new CancellationException('generic cancellation'));
 
         $this->assertSame(42, $eventLoop->wait($promise));
     }
@@ -45,7 +45,7 @@ trait CancellationTest
         };
 
         $promise = $eventLoop->promiseRejected($expectedException);
-        $promise->cancel();
+        $promise->cancel(new CancellationException('generic cancellation'));
 
         $this->expectException(get_class($expectedException));
         $eventLoop->wait($promise);
@@ -58,7 +58,7 @@ trait CancellationTest
 
         $result = $eventLoop->wait($eventLoop->async((function () use ($promise) {
             yield $promise;
-            $promise->cancel();
+            $promise->cancel(new CancellationException('generic cancellation'));
 
             return 'success';
         })()));
@@ -84,8 +84,8 @@ trait CancellationTest
                 yield $promise1;
                 yield $promise2;
             } catch (CancellationException $exception) {
-                $promise1->cancel();
-                $promise2->cancel();
+                $promise1->cancel(new CancellationException('generic cancellation'));
+                $promise2->cancel(new CancellationException('generic cancellation'));
 
                 throw $exception;
             }
@@ -94,7 +94,7 @@ trait CancellationTest
         })());
 
         try {
-            $asyncPromise->cancel();
+            $asyncPromise->cancel(new CancellationException('generic cancellation'));
         } catch (CancellationException $exception) {
         }
 
@@ -122,7 +122,7 @@ trait CancellationTest
         yield $eventLoop->delay($time);
 
         if ($promise) {
-            $promise->cancel();
+            $promise->cancel(new CancellationException('generic cancellation'));
         }
         yield $eventLoop->delay($time);
 
@@ -205,7 +205,7 @@ trait CancellationTest
         } catch (CancellationException $e) {
             $result = 'request cancelled';
         } catch (\Throwable $e) {
-            $result = 'other Exception';
+            $result = 'other Exception' .$e->getMessage();
         }
 
         $this->assertEquals($result, 'request cancelled');

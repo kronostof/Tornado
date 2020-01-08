@@ -16,7 +16,7 @@ abstract class EventLoopTest extends TestCase
     use EventLoopTest\PromiseRaceTest;
     use EventLoopTest\CancellationTest;
 
-    const LONG_WAITING_TIME = 10000;
+    const LONG_WAITING_TIME = 1000;
 
     abstract protected function createEventLoop(): EventLoop;
 
@@ -87,7 +87,7 @@ abstract class EventLoopTest extends TestCase
     {
         $expectedValue = 'Caramba!';
         $eventLoop = $this->createEventLoop();
-        $deferred = $eventLoop->deferred();
+        $deferred = $eventLoop->deferred(function() {});
 
         $resolverGenerator = function (EventLoop $eventLoop, Deferred $deferred) use ($expectedValue): \Generator {
             for ($count = 0; $count < 10; $count++) {
@@ -116,7 +116,7 @@ abstract class EventLoopTest extends TestCase
         $expectedException = new class() extends \Exception {
         };
         $eventLoop = $this->createEventLoop();
-        $deferred = $eventLoop->deferred();
+        $deferred = $eventLoop->deferred(function() {});
 
         $resolverGenerator = function (EventLoop $eventLoop, Deferred $deferred) use ($expectedException): \Generator {
             for ($count = 0; $count < 10; $count++) {
@@ -156,7 +156,7 @@ abstract class EventLoopTest extends TestCase
     public function testWaitFunctionShouldThrowIfPromiseCannotBeResolved()
     {
         $eventLoop = $this->createEventLoop();
-        $deferred = $eventLoop->deferred();
+        $deferred = $eventLoop->deferred(function() {});
 
         $this->expectException(\Error::class);
         $this->expectExceptionMessage('Impossible to resolve the promise, no more task to execute.');

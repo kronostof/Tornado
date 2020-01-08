@@ -23,7 +23,7 @@ function timer(EventLoop $eventLoop, string $id, int $time, \M6Web\Tornado\Promi
 
         if ($promise) {
             echo "[$id] Cancelling other promise …\n";
-            $promise->cancel();
+            $promise->cancel(new \M6Web\Tornado\CancellationException('generic cancellation'));
             echo "[$id] Done!\n";
         }
 
@@ -44,7 +44,7 @@ try {
             $eventLoop->async(timer($eventLoop, 'B', 10, $p1))
         )
     );
-} catch (\M6Web\Tornado\CancellationException $e) {
+} catch (\M6Web\Tornado\Exception\CancellationException $e) {
     $result = 'cancelled promise';
 } catch (\Exception $e) {
     $result = 'other exception';

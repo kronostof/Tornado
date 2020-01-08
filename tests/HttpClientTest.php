@@ -4,7 +4,7 @@ namespace M6WebTest\Tornado;
 
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use M6Web\Tornado\CancellationException;
+use M6Web\Tornado\Exception\CancellationException;
 use M6Web\Tornado\EventLoop;
 use M6Web\Tornado\HttpClient;
 use PHPUnit\Framework\TestCase;
@@ -196,7 +196,7 @@ abstract class HttpClientTest extends TestCase
     private function canceller(EventLoop $eventLoop, int $time, \M6Web\Tornado\Promise &$promise)
     {
         yield $eventLoop->delay($time);
-        $promise->cancel();
+        $promise->cancel(new CancellationException('generic cancellation'));
 
         return 'canceller resolved';
     }
